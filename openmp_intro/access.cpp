@@ -17,8 +17,7 @@ int main() {
     current_thread++;
   }
 
-  // may be need to set barrier
-  // https://www.openmp.org/spec-html/5.0/openmp.html
+  #pragma omp barrier
   printf("res=%d\n", res);
 
   return 0;
