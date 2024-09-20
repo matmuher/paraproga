@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 int main() {
-  int const N = 1'000'000'0;
+  int const N = 10'000'000;
   /*
   N = 1'000'000'0
 
