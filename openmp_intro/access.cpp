@@ -3,21 +3,18 @@
 
 int main() {
   int res = 0;
-  int current_thread = 0;
+  int const thread_num = omp_get_max_threads();
 
-#pragma omp parallel shared(res, current_thread)
+#pragma omp parallel for ordered shared(res)
+  for (int thread_idx = 0; thread_idx < thread_num; ++thread_idx)
   {
-    const int thread_idx = omp_get_thread_num();
-    while (current_thread != thread_idx) {
-      ;
+#pragma omp ordered
+    {
+      res += thread_idx;
+      printf("%d: res= %d\n", thread_idx, res);
     }
-
-    res += thread_idx;
-    printf("%d: res= %d\n", thread_idx, res);
-    current_thread++;
   }
 
-  #pragma omp barrier
   printf("res=%d\n", res);
 
   return 0;
