@@ -1,10 +1,10 @@
-THREAD_NUM := $(shell expr $(JSIZE) - 1)
+THREAD_NUM ?= 4
 
 all: cmp
 
 mpi:
 	mpic++ 1a_MPI.cpp
-	@mpirun --oversubscribe -np ${THREAD_NUM}  a.out ${ISIZE} ${JSIZE}
+	@mpirun --oversubscribe -np $(THREAD_NUM)  a.out ${ISIZE} ${JSIZE}
 
 ord:
 	mpic++ 1a.cpp

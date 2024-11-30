@@ -12,26 +12,21 @@ for (i=1; i<ISIZE; i++){
 }
 ```
 
-Let's look at this task closer.
-Dependency vector looks like: [-1 +1]
+Dependency vector looks like: [-1, +1]
+That dependency is diagonal.
+So we at least can parallelize for 'j'.
 
+I parallalized by 'j' and did benchmarking.
+ISIZE = JSIZE = 10'000.
 
+<img src="./execution_time_plot.png" width=70% height=auto>
 
-So we have diagonal dependency:
+## Loop #2
 
-<img src="./1a_general.png" alt="Alt Text" style="width:30%; height:auto;">
-
-If we draw this dependency for several cells, like this:
-
-<img src="./1a_diag.png" alt="Alt Text" style="width:30%; height:auto;">
-
-We would understand that for concrete 'i' we can easily do 'j' job in parallel.
-But we need to wait while previos 'i' row is complete.
-
-To paralellize this loop in this way with OpenMPI we need:
-1. Create program that will be executed on each execution unit
-2. Distribute work between units
-3. Do the work
-4. Wait while units from previous row complete job.
-
-I start JSIZE executors to execute all columns in parallel.
+```cpp
+for (i=0; i<ISIZE-1; i++){
+    for (j = 6; j < JSIZE; j++){
+        a[i][j] = sin(0.2*a[i+1][j-6]);
+    }
+}
+```
