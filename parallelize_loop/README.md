@@ -2,6 +2,24 @@
 
 In this project I parallelize 3 nested 'for' loops using OpenMP and MPI.
 
+## Loop #0
+
+Firstly, let's look at the simplest loop.
+As you see, there are no dependencies so it can be easily parallelized.
+
+I chose OpenMP for parallelization as it's easy to start up
+and there is no need to gather data after computation.
+
+```cpp
+for (i=0; i<ISIZE; i++){
+    for (j = 0; j < JSIZE; j++){
+        a[i][j] = sin(2*a[i][j]);
+    }
+}
+```
+
+<img src="./zero_execution_time.png" width=70% height=auto>
+
 ## Loop #1
 
 ```cpp
