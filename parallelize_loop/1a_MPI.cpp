@@ -45,11 +45,9 @@ int main(int argc, char** argv) {
     work_end = (work_end <= JSIZE) ? work_end : JSIZE;
     int local_j_max = work_end - work_start;
 
-    /* Local storage: VLA */
     double* local_results = (double*) malloc(ISIZE * work_size * sizeof(double));
 
     /* Init data */
-    /* ALERT: Tail handling */
     for (int local_j = 0; local_j < local_j_max; local_j++) {
         local_results[0 * work_size + local_j] = 10. * 0. + (work_start + local_j);
     }

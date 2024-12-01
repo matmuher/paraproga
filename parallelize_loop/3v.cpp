@@ -3,10 +3,10 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
-#include <omp.h>
+#include <mpi.h>
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
+
     unsigned ISIZE = 10'000;
     unsigned JSIZE = 10'000;
 
@@ -22,29 +22,40 @@ int main(int argc, char **argv)
     }
 
     std::vector<std::vector<double>> a{ISIZE, std::vector<double>(JSIZE, 0)};
+    std::vector<std::vector<double>> b{ISIZE, std::vector<double>(JSIZE, 0)};
 
     int i, j;
     FILE *ff;
     for (i=0; i<ISIZE; i++){
         for (j=0; j<JSIZE; j++){
             a[i][j] = 10*i +j;
+            b[i][j] = 0;
         }
     }
 
-    double start = omp_get_wtime();
-    for (i=0; i<ISIZE-1; i++){
-        for (j = 6; j < JSIZE; j++){
-            a[i][j] = sin(0.2*a[i+1][j-6]);
+    float start = MPI_Wtime();
+    //начало измерения времени
+
+    for (i=0; i<ISIZE; i++){
+        for (j = 0; j < JSIZE; j++){
+            a[i][j] = sin(0.01*a[i][j]);
         }
     }
-    double end = omp_get_wtime();
 
+    for (i=0; i<ISIZE; i++){
+        for (j = 2; j < JSIZE; j++){
+            b[i][j] = a[i][j-2]*2.5;
+        }
+    }
+
+    //окончание измерения времени
+    float end = MPI_Wtime();
     printf("Elapsed time: %f\n", end - start);
 
-    ff = fopen("2b_result.txt","w");
-    for(i= 0; i < ISIZE; i++){
-        for (j= 0; j < JSIZE; j++){
-            fprintf(ff,"%f ",a[i][j]);
+    ff = fopen("3v.txt","w");
+    for(i=0; i < ISIZE; i++){
+        for (j=0; j < JSIZE; j++){
+            fprintf(ff,"%f ", b[i][j]);
         }
         fprintf(ff,"\n");
     }
