@@ -2,6 +2,10 @@
 #include <cstdio>
 #include <cassert>
 #include <omp.h>
+#include <thread>
+#include <vector>
+
+std::vector<std::thread> workers;
 
 struct Coefs {
     double a;
@@ -24,6 +28,7 @@ double h2;
 double h2_12;
 
 int N;
+int chunk;
 int reduction_th;
 
 // double f(double y) {
@@ -115,7 +120,7 @@ struct ProgonCoef {
     Thx for debugging, Dear https://matrixcalc.org/slu.html#solve-using-Gaussian-elimination
 */
 void do_progonka(int start, int step) {
-    // printf("Progonka [%d, %d]\n", start, start + 2*step);
+    printf("Progonka [%d, %d] %d\n", start, start + 2*step, start / chunk);
     // dump_system2(start, start+2*step);
 
     ProgonCoef* progons = (ProgonCoef*) calloc(2*step+1, sizeof(ProgonCoef));
@@ -159,8 +164,11 @@ void inverse_reduction(int start, int step) {
         inverse_reduction(start, step/2);
         inverse_reduction(start + step, step/2);
     } else {
-        do_progonka(start, step/2);
-        do_progonka(start + step, step/2);
+        int idx = start / chunk;
+        workers[idx] = std::thread{do_progonka, start, step/2};
+        workers[idx+1] = std::thread{do_progonka, start + step, step/2};
+        // do_progonka(start, step/2);
+        // do_progonka(start + step, step/2);
     }
 }
 
@@ -176,7 +184,11 @@ int main(int argc, const char** argv) {
 
 /* Input params */
 
-    N = (2<<14)+1; // Number of points
+    N = (2<<17)+1; // Number of points
+
+    int worker_num = 8;
+    chunk = (N-1) / worker_num;
+    workers = std::vector<std::thread>(worker_num);
 
     double const x_st = 0.;
     double const y_st = 1.;
@@ -192,7 +204,7 @@ int main(int argc, const char** argv) {
     h = (x_end - x_st) / (N-1);
     h2 = h*h;
     h2_12 = h2/12.;
-    reduction_th = 64;
+    reduction_th = chunk;
 
     y0s = (double*) calloc(N, sizeof(double));
     xs = (double*) calloc(N, sizeof(double));
@@ -330,6 +342,10 @@ int main(int argc, const char** argv) {
 
         inverse_reduction(0, max_step);
         
+        for (int idx = 0; idx < worker_num; idx++) {
+            workers[idx].join();
+        }
+
         double inverse_time = make_time_sample();
         
         // printf("Inversed system\n\n");
@@ -381,9 +397,9 @@ int main(int argc, const char** argv) {
     fprintf(res_file, "\n");
     fclose(res_file);
 
-    printf("N = %d, h = %f\n", N, h);
+    printf("N = %d, chunk = %d, h = %f\n", N, (N-1)/worker_num, h);
 
-    system("python plot.py");
+    // system("python plot.py");
 
     return 0;
 }
