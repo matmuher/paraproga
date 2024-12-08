@@ -1,8 +1,22 @@
 import matplotlib.pyplot as plt
-xs = "0.0 0.6 1.2 1.9 2.5 3.1 3.8 4.4 5.0 5.6 6.2 6.9 7.5 8.1 8.8 9.4 10.0"
-xs = [float(x) for x in xs.split(' ')]
+import numpy as np
 
-ys = "0.0 0.4 1.6 3.5 6.3 9.8 14.1 19.1 25.0 31.6 39.1 47.3 56.3 66.0 76.6 87.9 100.0"
-ys = [float(y) for y in ys.split(' ')]
-plt.plot(xs, ys)
+with open("results.txt") as file:
+
+    xs = file.readline()
+    ys = file.readline()
+
+xs = [float(x) for x in xs[:-2].split(' ')]
+
+ys = [float(y) for y in ys[:-2].split(' ')]
+
+orig = 0.1 * np.exp(np.array(xs)) - 0.2 * np.exp(-np.array(xs))
+err = np.abs(orig - ys)
+
+plt.plot(xs, ys, label = "computed")
+# plt.plot(xs, orig, label = "true")
+
+# plt.plot(xs, err, label = 'error')
+
+plt.legend()
 plt.show()
