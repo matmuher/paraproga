@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cassert>
+#include <omp.h>
 
 struct Coefs {
     double a;
@@ -14,7 +15,8 @@ Coefs* origin_coefs = NULL;
 
 double* y0s = NULL;
 double* xs = NULL;
-double* nus = NULL;
+double* gs = NULL;
+double* ss = NULL;
 
 double a_param;
 double h;
@@ -25,20 +27,18 @@ int N;
 int reduction_th;
 
 // double f(double y) {
-//     return a_param * (y*y*y - y);
+//     return -a_param * (y*y*y - y);
 // }
 
 double f(double y) {
-    // return y;
     return exp(y);
 }
 
 // double df_dy(double y) {
-//     return a_param * (3 * y*y - 1);
+//     return -a_param * (3 * y*y - 1);
 // }
 
 double df_dy(double y) {
-    // return 1;
     return exp(y);
 }
 
@@ -115,8 +115,8 @@ struct ProgonCoef {
     Thx for debugging, Dear https://matrixcalc.org/slu.html#solve-using-Gaussian-elimination
 */
 void do_progonka(int start, int step) {
-    printf("Progonka [%d, %d]\n", start, start + 2*step);
-    dump_system2(start, start+2*step);
+    // printf("Progonka [%d, %d]\n", start, start + 2*step);
+    // dump_system2(start, start+2*step);
 
     ProgonCoef* progons = (ProgonCoef*) calloc(2*step+1, sizeof(ProgonCoef));
     
@@ -144,12 +144,12 @@ void do_progonka(int start, int step) {
         // printf("alfa: %f, beta: %f\n", progons[i].alfa, progons[i].beta);
     }
 
-    printf("prognali:\n");
-    dump_system(start, start+2*step);
+    // printf("prognali:\n");
+    // dump_system(start, start+2*step);
 }
 
 void inverse_reduction(int start, int step) {
-    printf("InverseReduction[start = %d, step = %d]\n", start, step);
+    // printf("InverseReduction[start = %d, step = %d]\n", start, step);
 
     Coefs cur = coefs[start + step];
     double res = (cur.d - cur.a * coefs[start].d - cur.c * coefs[start + step*2].d) / cur.b;
@@ -164,77 +164,77 @@ void inverse_reduction(int start, int step) {
     }
 }
 
+double make_time_sample() {
+    static double last_sample = omp_get_wtime();
+    double current = omp_get_wtime();
+    double ret = current - last_sample;
+    last_sample = current;
+    return ret;
+}
+
 int main(int argc, const char** argv) {
+
+/* Input params */
+
+    N = (2<<14)+1; // Number of points
 
     double const x_st = 0.;
     double const y_st = 1.;
-    // double const y_st = 100.;
 
     double const x_end = 1.;
-    double const y_end = .5;
-    // double const y_end = 100.;
+    double const y_end = 0.5;
 
-    double const a_min = 1;
+    double const a_min = 100;
     double const a_max = 1'000'000;
-
-    double const h_factor = 10.; // 1'000;
 
     a_param = a_min;
 
-    N = (2<<4)+1;
     h = (x_end - x_st) / (N-1);
     h2 = h*h;
     h2_12 = h2/12.;
-    reduction_th = 4;
-
-    // printf("h = %.2f, N = %d\n", h, N);
+    reduction_th = 64;
 
     y0s = (double*) calloc(N, sizeof(double));
     xs = (double*) calloc(N, sizeof(double));
-    nus = (double*) calloc(N, sizeof(double));
+    gs = (double*) calloc(N, sizeof(double));
+    ss = (double*) calloc(N, sizeof(double));
 
-    /* Init xs */
+/* Init xs */
 
     xs[0] = x_st;
     xs[N-1] = x_end;
 
-    // printf("%.1f ", xs[0]);
     for (int n = 1; n < N-1; n++) {
         xs[n] = xs[0] + h * n;
-        // printf("%.1f ", xs[n]);
     }
-    // printf("%.1f\n", xs[N-1]);
 
-    /* Init y0s with linear approximation */
+/* Init y0s with linear approximation */
 
     y0s[0] = y_st;
     y0s[N-1] = y_end;
 
     double const k = (y_end - y_st) / (x_end - x_st);
 
-    // printf("%.1f ", y0s[0]);
     for (int n = 1; n < N-1; n++) {
         y0s[n] = y_st + (xs[n] - x_st) * k;
-        // printf("%.1f ", y0s[n]);
     }
-    // printf("%.1f\n", y0s[N-1]);
 
-    /* Allocate coefs for linear system on nu */
+/* Allocate coefs for linear system on nu */
 
     coefs = (Coefs*) calloc(N, sizeof(Coefs));
     origin_coefs = (Coefs*) calloc(N, sizeof(Coefs));
 
-    /* Fill initial coefs for system on nu */
+/* Fill initial coefs for system on nu */
 
-    int pass_num = 5;
+    int pass_num = 1;
 
     if (argc == 2) {
         pass_num = atoi(argv[1]);
     }
 
     for (int pass_idx = 0; pass_idx < pass_num; pass_idx++) {
-
-        printf("!!! PASS IDX !!!: %d\n", pass_idx);
+        make_time_sample();
+        // printf("!!! PASS IDX !!!: %d\n", pass_idx);
 
         coefs[0] = {0, 1, 0 , 0};
         origin_coefs[0] = coefs[0]; 
@@ -242,24 +242,65 @@ int main(int argc, const char** argv) {
         coefs[N-1] = {0, 1, 0, 0};
         origin_coefs[N-1] = coefs[N-1];
 
-        for (int n = 1; n < N-1; n++) {
-            Coefs cur;
-            
-            /* https://en.wikipedia.org/wiki/Numerov%27s_method */
-            cur.a = (1 + h2_12 * g(n-1));
-            cur.b = 2 * (5.* h2_12 * g(n) - 1);
-            cur.c = (1 + h2_12*g(n+1));
-            cur.d = h2_12 * (s(n+1) + 10*s(n) + s(n-1));
-            // cur.d = h2/12.*(s(n+1) + 10*s(n) + s(n-1)); 
+        int n;
 
-            // cur.a = 1.;
-            // cur.b = -2.;
-            // cur.c = 1.;
-            // cur.d = (2 - d2y_dx2(y0s, n))* h2;
+/* Sequential filling */
+        // double gs_n = g(1);
+        // double gs_n_m_1 = g(0);
+        // double gs_n_p_1;
+
+        // double ss_n = s(1);
+        // double ss_n_m_1 = s(0);
+        // double ss_n_p_1;
+
+        // for (n = 1; n < N-1; n++) {
+        //     Coefs cur;
+
+        //     /* https://en.wikipedia.org/wiki/Numerov%27s_method */
+
+        //     gs_n_p_1 = g(n+1);
+        //     ss_n_p_1 = s(n+1);
+
+        //     cur.a = (1 + h2_12 * gs_n_m_1);
+        //     cur.b = 2 * (5.* h2_12 * gs_n - 1);
+        //     cur.c = (1 + h2_12 * gs_n_p_1);
+        //     cur.d = h2_12 * (ss_n_p_1 + 10*ss_n + ss_n_m_1);
+
+        //     gs_n_m_1 = gs_n;
+        //     gs_n = gs_n_p_1;
+
+        //     ss_n_m_1 = ss_n;
+        //     ss_n = ss_n_p_1;
+
+        //     coefs[n] = cur;
+        //     origin_coefs[n] = cur;
+        // }
+
+
+        gs[0] = g(0);
+        gs[1] = g(1);
+
+        ss[0] = s(0);
+        ss[1] = s(1);
+
+        for (n = 1; n < N-1; n++) {
+            Coefs cur;
+
+            /* https://en.wikipedia.org/wiki/Numerov%27s_method */
+
+            gs[n+1] = g(n+1);
+            ss[n+1] = s(n+1);
+
+            cur.a = (1 + h2_12 * gs[n-1]);
+            cur.b = 2 * (5.* h2_12 * gs[n] - 1);
+            cur.c = (1 + h2_12 * gs[n+1]);
+            cur.d = h2_12 * (ss[n+1] + 10*ss[n] + ss[n-1]);
 
             coefs[n] = cur;
             origin_coefs[n] = cur;
         }
+
+        double fill_coefs_time = make_time_sample();
 
         /* Do the reduction on odd equations */
 
@@ -280,12 +321,16 @@ int main(int argc, const char** argv) {
             // printf("\n");
         }
         
+        double reduction_time = make_time_sample();
+
         /* Do the inverse reduction on reduced equations */
 
         // printf("Non inversed system\n\n");
         // dump_system();
 
         inverse_reduction(0, max_step);
+        
+        double inverse_time = make_time_sample();
         
         // printf("Inversed system\n\n");
         // dump_system();
@@ -303,6 +348,23 @@ int main(int argc, const char** argv) {
         //     printf("%.1f ", coefs[n].d);
         // }
         // printf("\n");
+
+        double update_time = make_time_sample();
+    
+        double total_time = update_time +
+                            fill_coefs_time +
+                            reduction_time +
+                            inverse_time;
+        printf("\t[TIME] total: %f ms\n"
+                "fill coefs: %.1f%%\n"
+                "reduction: %.1f%%\n"
+                "inverse: %.1f%%\n"
+                "update: %.1f%%\n",
+                total_time * 1000.,
+                100. * fill_coefs_time / total_time,
+                100. * reduction_time / total_time,
+                100. * inverse_time / total_time,
+                100. * update_time / total_time);
     }
 
     FILE* res_file = fopen("results.txt", "w");
