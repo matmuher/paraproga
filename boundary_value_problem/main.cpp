@@ -44,6 +44,13 @@ double df_dy(double y) {
 
 double d2y_dx2(double* y, int n) {
     // assert(n != 1 && n != N-1);
+
+    if (n == 0) {
+        return (y[n+1] - 2 * y[n] + y[n+1]) / (h2);
+    } else if (n == N-1) {
+        return (y[n-1] - 2 * y[n] + y[n-1]) / (h2);
+    }
+
     return (y[n+1] - 2 * y[n] + y[n-1]) / (h2);
 }
 
@@ -108,8 +115,8 @@ struct ProgonCoef {
     Thx for debugging, Dear https://matrixcalc.org/slu.html#solve-using-Gaussian-elimination
 */
 void do_progonka(int start, int step) {
-    // printf("Progonka [%d, %d]\n", start, start + 2*step);
-    // dump_system2(start, start+2*step);
+    printf("Progonka [%d, %d]\n", start, start + 2*step);
+    dump_system2(start, start+2*step);
 
     ProgonCoef* progons = (ProgonCoef*) calloc(2*step+1, sizeof(ProgonCoef));
     
@@ -137,12 +144,12 @@ void do_progonka(int start, int step) {
         // printf("alfa: %f, beta: %f\n", progons[i].alfa, progons[i].beta);
     }
 
-    // printf("prognali:\n");
-    // dump_system(start, start+2*step);
+    printf("prognali:\n");
+    dump_system(start, start+2*step);
 }
 
 void inverse_reduction(int start, int step) {
-    // printf("Pass[start = %d, step = %d]\n", start, step);
+    printf("InverseReduction[start = %d, step = %d]\n", start, step);
 
     Coefs cur = coefs[start + step];
     double res = (cur.d - cur.a * coefs[start].d - cur.c * coefs[start + step*2].d) / cur.b;
@@ -160,11 +167,11 @@ void inverse_reduction(int start, int step) {
 int main(int argc, const char** argv) {
 
     double const x_st = 0.;
-    double const y_st = 0.;
+    double const y_st = 1.;
     // double const y_st = 100.;
 
     double const x_end = 1.;
-    double const y_end = 1.;
+    double const y_end = .5;
     // double const y_end = 100.;
 
     double const a_min = 1;
@@ -174,11 +181,11 @@ int main(int argc, const char** argv) {
 
     a_param = a_min;
 
-    N = (2<<12)+1;
+    N = (2<<4)+1;
     h = (x_end - x_st) / (N-1);
     h2 = h*h;
     h2_12 = h2/12.;
-    reduction_th = 8;
+    reduction_th = 4;
 
     // printf("h = %.2f, N = %d\n", h, N);
 
@@ -242,13 +249,13 @@ int main(int argc, const char** argv) {
             cur.a = (1 + h2_12 * g(n-1));
             cur.b = 2 * (5.* h2_12 * g(n) - 1);
             cur.c = (1 + h2_12*g(n+1));
-            cur.d = h2_12 * (s(n) + 10*s(n) + s(n));
+            cur.d = h2_12 * (s(n+1) + 10*s(n) + s(n-1));
             // cur.d = h2/12.*(s(n+1) + 10*s(n) + s(n-1)); 
 
-            cur.a = 1.;
-            cur.b = -2.;
-            cur.c = 1.;
-            cur.d = (2 - d2y_dx2(y0s, n))* h2;
+            // cur.a = 1.;
+            // cur.b = -2.;
+            // cur.c = 1.;
+            // cur.d = (2 - d2y_dx2(y0s, n))* h2;
 
             coefs[n] = cur;
             origin_coefs[n] = cur;
