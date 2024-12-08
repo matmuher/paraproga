@@ -27,3 +27,6 @@ inverse: 30.3%
 update: 2.5%
 N = 32769, h = 0.000031
 ```
+
+Tried paralleling with std::thread inverse part.
+With N = 2<<17 there is benefit, but it's very small as bottleneck is "fill coefs" part

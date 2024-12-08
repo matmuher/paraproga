@@ -180,11 +180,33 @@ double make_time_sample() {
     return ret;
 }
 
+void init_coefs(int start, int end) {
+    printf("INIT %d:%d\n", start, end);
+
+    for (int n = start; n < end; n++) {
+        if (n == 0 || n == N-1) {
+            continue;
+        }
+
+        Coefs cur;
+
+        /* https://en.wikipedia.org/wiki/Numerov%27s_method */
+
+        cur.a = (1 + h2_12 * g(n-1));
+        cur.b = 2 * (5.* h2_12 * g(n) - 1);
+        cur.c = (1 + h2_12 * g(n+1));
+        cur.d = h2_12 * (s(n+1) + 10*s(n) + s(n-1));
+
+        coefs[n] = cur;
+        origin_coefs[n] = cur;
+    }
+}
+
 int main(int argc, const char** argv) {
 
 /* Input params */
 
-    N = (2<<17)+1; // Number of points
+    N = (2<<14)+1; // Number of points
 
     int worker_num = 8;
     chunk = (N-1) / worker_num;
@@ -288,29 +310,27 @@ int main(int argc, const char** argv) {
         //     origin_coefs[n] = cur;
         // }
 
-
-        gs[0] = g(0);
-        gs[1] = g(1);
-
-        ss[0] = s(0);
-        ss[1] = s(1);
-
-        for (n = 1; n < N-1; n++) {
-            Coefs cur;
-
-            /* https://en.wikipedia.org/wiki/Numerov%27s_method */
-
-            gs[n+1] = g(n+1);
-            ss[n+1] = s(n+1);
-
-            cur.a = (1 + h2_12 * gs[n-1]);
-            cur.b = 2 * (5.* h2_12 * gs[n] - 1);
-            cur.c = (1 + h2_12 * gs[n+1]);
-            cur.d = h2_12 * (ss[n+1] + 10*ss[n] + ss[n-1]);
-
-            coefs[n] = cur;
-            origin_coefs[n] = cur;
+        for (int idx = 0; idx < worker_num; idx++) {
+            workers[idx] = std::thread{init_coefs, idx * chunk, (idx + 1) * chunk};
         }
+
+        for (int idx = 0; idx < worker_num; idx++) {
+            workers[idx].join();
+        }
+
+        // for (n = 1; n < N-1; n++) {
+        //     Coefs cur;
+
+        //     /* https://en.wikipedia.org/wiki/Numerov%27s_method */
+
+        //     cur.a = (1 + h2_12 * g(n-1));
+        //     cur.b = 2 * (5.* h2_12 * g(n) - 1);
+        //     cur.c = (1 + h2_12 * g(n+1));
+        //     cur.d = h2_12 * (s(n+1) + 10*s(n) + s(n-1));
+
+        //     coefs[n] = cur;
+        //     origin_coefs[n] = cur;
+        // }
 
         double fill_coefs_time = make_time_sample();
 
