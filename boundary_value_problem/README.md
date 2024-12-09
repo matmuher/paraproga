@@ -82,9 +82,11 @@ I measured perfomance for 1, 2, 4 and 8 threads.
 Plot of solutions:
 
 For 1B:
+
 ![](./1B.png)
 
 For 2B:
+
 ![](./2B.png)
 
 ![](./B2_b1_5.png)
