@@ -1,22 +1,27 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import subprocess
 
-with open("results.txt") as file:
+bs = [1.45, 1.50, 1.55]
+print(bs)
 
-    xs = file.readline()
-    ys = file.readline()
+for b in bs:
 
-xs = [float(x) for x in xs[:-2].split(' ')]
+    cmd = [f'./a.out', '8', '1', f'{b}']
+    result = subprocess.run(cmd, capture_output=True, text=True)
 
-ys = [float(y) for y in ys[:-2].split(' ')]
+    with open("results.txt") as file:
 
-orig = 0.1 * np.exp(np.array(xs)) - 0.2 * np.exp(-np.array(xs))
-err = np.abs(orig - ys)
+        xs = file.readline()
+        ys = file.readline()
 
-plt.plot(xs, ys, label = "computed")
-# plt.plot(xs, orig, label = "true")
+    xs = [float(x) for x in xs[:-2].split(' ')]
+    ys = [float(y) for y in ys[:-2].split(' ')]
 
-# plt.plot(xs, err, label = 'error')
+    step = 1
+    plt.scatter(xs[::step], ys[::step], label = f"b = {b}")
+
 
 plt.legend()
 plt.show()
+# plt.savefig("B2.svg")

@@ -1,2 +1,2 @@
 all:
-	g++ main.cpp -fopenmp -g -O3 -ftree-vectorize
+	g++ bvp.cpp -fopenmp -g -O3 -ftree-vectorize
